@@ -1,5 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyBurBknllq8ZQOiOy_sbLqezD56P-Www7o",
@@ -12,7 +14,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
+const auth = getAuth(app);
 
 // ════════════════════════════════════════
 //  DATA & STATE
@@ -22,11 +24,11 @@ let invoices = [];
 let settings = {};
 let currentInvoiceId = null;
 
-const USERS = [
-  { username: 'admin', password: 'admin123', role: 'admin', name: 'Administrator' },
-  { username: 'staff', password: 'staff123', role: 'staff', name: 'Staff Member' },
-  { username: 'yusuf', password: 'yusuf123', role: 'tester', name: 'Testing User' },
-];
+const USERS = {
+  'admin@kaisan.com': { role: 'admin', name: 'Administrator', username: 'admin' },
+  'staff@kaisan.com': { role: 'staff', name: 'Staff Member', username: 'staff' },
+  'yusuf@kaisan.com': { role: 'tester', name: 'Testing User', username: 'yusuf' },
+};
 
 // for all other other
 // const PRODUCTS = [
@@ -127,25 +129,31 @@ function showPage(page) {
   }
 }
 
-function doLogin() {
-  const u = document.getElementById('loginUsername').value.trim();
+async function doLogin() {
+  const u = document.getElementById('loginUsername').value.trim().toLowerCase();
   const p = document.getElementById('loginPassword').value;
-  const user = USERS.find(x => x.username === u && x.password === p);
+  const email = u + '@kaisan.com';
 
-  if (!user) {
+  try {
+    const result = await signInWithEmailAndPassword(auth, email, p);
+    const userInfo = USERS[email];
+    if (!userInfo) {
+      document.getElementById('loginError').style.display = 'block';
+      await signOut(auth);
+      return;
+    }
+    currentUser = { ...userInfo, email };
+    localStorage.setItem('kaisan_user', JSON.stringify(currentUser));
+    initApp();
+    showPage('app');
+    showView('dashboard');
+    toast('Welcome back, ' + currentUser.name + '!', 'success');
+  } catch (e) {
     document.getElementById('loginError').style.display = 'block';
-    return;
   }
-  document.getElementById('loginError').style.display = 'none';
-  currentUser = user;
-  localStorage.setItem('kaisan_user', JSON.stringify(user));
-  initApp();
-  showPage('app');
-  showView('dashboard');
-  toast('Welcome back, ' + user.name + '!', 'success');
 }
-
-function doLogout() {
+async function doLogout() {
+  await signOut(auth);
   currentUser = null;
   localStorage.removeItem('kaisan_user');
   showPage('login');
@@ -721,7 +729,7 @@ function loadSettingsForm() {
   `).join('');
   document.getElementById('productPricesList').innerHTML = pricesHtml;
 
-  const staffHtml = USERS.map(u => `
+  const staffHtml = Object.values(USERS).map(u => `
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;margin-bottom:8px;">
       <div class="user-avatar" style="width:30px;height:30px;font-size:.75rem;">${u.name[0]}</div>
       <div>
