@@ -743,12 +743,24 @@ function loadSettingsForm() {
   `).join('');
   document.getElementById('productPricesList').innerHTML = pricesHtml;
 
-  const staffHtml = Object.values(USERS).map(u => `
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;margin-bottom:8px;">
-      <div class="user-avatar" style="width:30px;height:30px;font-size:.75rem;">${u.name[0]}</div>
-      <div>
-        <div style="font-size:.88rem;font-weight:600;">${escHtml(u.name)}</div>
-        <div style="font-size:.76rem;color:var(--gray-500);">@${escHtml(u.username)} · <span class="badge ${u.role === 'admin' ? 'badge-red' : 'badge-green'}">${u.role}</span></div>
+ const staffHtml = Object.values(USERS).map(u => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:var(--gray-50);border-radius:8px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="user-avatar" style="width:30px;height:30px;font-size:.75rem;">${u.name[0]}</div>
+        <div>
+          <div style="font-size:.88rem;font-weight:600;">${escHtml(u.name)}</div>
+          <div style="font-size:.76rem;color:var(--gray-500);">@${escHtml(u.username)} · <span class="badge ${u.role === 'admin' ? 'badge-red' : 'badge-green'}">${u.role}</span></div>
+        </div>
+      </div>
+     <div style="display:flex;align-items:center;gap:8px;">
+        ${u.password ? `
+        <div style="font-size:.76rem;color:var(--gray-500);background:white;border:1px solid var(--gray-200);border-radius:6px;padding:4px 10px;">
+          🔑 <span style="font-family:monospace;letter-spacing:1px;">${escHtml(u.password)}</span>
+        </div>` : '<div style="font-size:.72rem;color:var(--gray-400);">no password saved</div>'}
+        ${u.username !== currentUser.username ? `
+        <button class="btn btn-sm btn-danger" onclick="deleteUser('${escHtml(u.username)}')" title="Delete user">
+          <svg style="width:13px;height:13px;fill:none;stroke:white;stroke-width:2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        </button>` : ''}
       </div>
     </div>
   `).join('');
@@ -799,7 +811,7 @@ async function createUser() {
     await createUserWithEmailAndPassword(auth, email, password);
 
     // Save to Firestore
-    const userData = { email, username, name, role };
+    const userData = { email, username, name, role, password };
     await setDoc(doc(db, 'users', username), userData);
     USERS[email] = userData;
 
@@ -820,6 +832,23 @@ async function createUser() {
     createBtn.textContent = 'Create User';
   }
 }
+
+async function deleteUser(username) {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  if (!confirm('Delete user @' + username + '? This cannot be undone.')) return;
+
+  try {
+    await deleteDoc(doc(db, 'users', username));
+    const email = username + '@kaisan.com';
+    delete USERS[email];
+    loadSettingsForm();
+    toast('@' + username + ' deleted successfully!', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Failed to delete user', 'error');
+  }
+}
+
 // ════════════════════════════════════════
 //  DAILY SUMMARY
 // ════════════════════════════════════════
@@ -982,6 +1011,7 @@ window.saveSettings = saveSettings;
 window.updateCalc = updateCalc;
 window.onProductChange = onProductChange;
 window.createUser = createUser;
+window.deleteUser = deleteUser;
 // Close modal on overlay click
 document.getElementById('invoiceModal').addEventListener('click', function (e) {
   if (e.target === this) closeModal();
