@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 
 const firebaseConfig = {
@@ -24,11 +24,7 @@ let invoices = [];
 let settings = {};
 let currentInvoiceId = null;
 
-const USERS = {
-  'admin@kaisan.com': { role: 'admin', name: 'Administrator', username: 'admin' },
-  'staff@kaisan.com': { role: 'staff', name: 'Staff Member', username: 'staff' },
-  'yusuf@kaisan.com': { role: 'tester', name: 'Testing User', username: 'yusuf' },
-};
+let USERS = {};
 
 // for all other other
 // const PRODUCTS = [
@@ -94,7 +90,25 @@ async function loadData() {
     } else {
       settings = { ...DEFAULT_SETTINGS };
     }
+// Load users
+    const usersSnap = await getDocs(collection(db, 'users'));
+    USERS = {};
+    usersSnap.docs.forEach(d => {
+      USERS[d.data().email] = { ...d.data() };
+    });
 
+    // If no users in Firestore yet, seed defaults
+    if (Object.keys(USERS).length === 0) {
+      const defaults = [
+        { email: 'admin@kaisan.com', role: 'admin', name: 'Administrator', username: 'admin' },
+        { email: 'staff@kaisan.com', role: 'staff', name: 'Staff Member', username: 'staff' },
+        { email: 'yusuf@kaisan.com', role: 'tester', name: 'Testing User', username: 'yusuf' },
+      ];
+      for (const u of defaults) {
+        await setDoc(doc(db, 'users', u.username), u);
+        USERS[u.email] = u;
+      }
+    }
     const u = localStorage.getItem('kaisan_user');
     if (u) {
       currentUser = JSON.parse(u);
@@ -758,6 +772,54 @@ async function saveSettings() {
   await setDoc(doc(db, 'settings', 'station'), settings);
   toast('Settings saved successfully!', 'success');
 }
+
+async function createUser() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+
+  const username = document.getElementById('new_username').value.trim().toLowerCase();
+  const name = document.getElementById('new_name').value.trim();
+  const role = document.getElementById('new_role').value;
+  const password = document.getElementById('new_password').value;
+
+  if (!username) return toast('Please enter a username', 'error');
+  if (!name) return toast('Please enter a full name', 'error');
+  if (!role) return toast('Please select a role', 'error');
+  if (!password || password.length < 6) return toast('Password must be at least 6 characters', 'error');
+
+  const email = username + '@kaisan.com';
+
+  if (USERS[email]) return toast('Username already exists', 'error');
+
+  const createBtn = document.getElementById('createUserBtn');
+  createBtn.disabled = true;
+  createBtn.textContent = 'Creating...';
+
+  try {
+    // Create in Firebase Auth
+    await createUserWithEmailAndPassword(auth, email, password);
+
+    // Save to Firestore
+    const userData = { email, username, name, role };
+    await setDoc(doc(db, 'users', username), userData);
+    USERS[email] = userData;
+
+    // Clear form
+    document.getElementById('new_username').value = '';
+    document.getElementById('new_name').value = '';
+    document.getElementById('new_role').value = '';
+    document.getElementById('new_password').value = '';
+
+    // Refresh staff list
+    loadSettingsForm();
+    toast(name + ' added successfully!', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Failed to create user: ' + err.message, 'error');
+  } finally {
+    createBtn.disabled = false;
+    createBtn.textContent = 'Create User';
+  }
+}
 // ════════════════════════════════════════
 //  DAILY SUMMARY
 // ════════════════════════════════════════
@@ -919,7 +981,7 @@ window.renderInvoicesList = renderInvoicesList;
 window.saveSettings = saveSettings;
 window.updateCalc = updateCalc;
 window.onProductChange = onProductChange;
-
+window.createUser = createUser;
 // Close modal on overlay click
 document.getElementById('invoiceModal').addEventListener('click', function (e) {
   if (e.target === this) closeModal();

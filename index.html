@@ -560,6 +560,35 @@
             <div id="productPricesList"></div>
             <div class="section-divider"><span>Staff Management</span></div>
             <div id="staffList" style="margin-bottom:16px;"></div>
+            <div class="section-divider" style="margin-top:24px;"><span>Add New User</span></div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+  <div class="form-group">
+    <label class="form-label">Username</label>
+    <input type="text" id="new_username" class="form-control" placeholder="e.g. john">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Full Name</label>
+    <input type="text" id="new_name" class="form-control" placeholder="e.g. John Doe">
+  </div>
+  <div class="form-group">
+    <label class="form-label">Role</label>
+    <select id="new_role" class="form-control">
+      <option value="">Select role...</option>
+      <option value="admin">Admin</option>
+      <option value="staff">Staff</option>
+      <option value="tester">Tester</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Password</label>
+    <input type="password" id="new_password" class="form-control" placeholder="Min. 6 characters">
+  </div>
+</div>
+
+<button id="createUserBtn" class="btn btn-primary" style="margin-top:8px;" onclick="createUser()">
+  Create User
+</button>
 
             <button class="btn btn-primary" onclick="saveSettings()">
               <svg style="width:16px;height:16px;fill:none;stroke:white;stroke-width:2" viewBox="0 0 24 24">
