@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 
 const firebaseConfig = {
@@ -148,12 +148,32 @@ async function doLogin() {
   const p = document.getElementById('loginPassword').value;
   const email = u + '@kaisan.com';
 
+  const loginBtn = document.querySelector('.btn-login');
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = `
+    <svg style="width:18px;height:18px;fill:none;stroke:white;stroke-width:2;animation:spin 1s linear infinite;" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+        <animate attributeName="stroke-dashoffset" dur="1s" repeatCount="indefinite" from="31.416" to="0"/>
+      </circle>
+    </svg>
+    Signing In...
+  `;
+
   try {
     const result = await signInWithEmailAndPassword(auth, email, p);
     const userInfo = USERS[email];
     if (!userInfo) {
       document.getElementById('loginError').style.display = 'block';
       await signOut(auth);
+      loginBtn.disabled = false;
+      loginBtn.innerHTML = `
+        <svg style="width:18px;height:18px;fill:none;stroke:white;stroke-width:2" viewBox="0 0 24 24">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+          <polyline points="10 17 15 12 10 7" />
+          <line x1="15" y1="12" x2="3" y2="12" />
+        </svg>
+        Sign In
+      `;
       return;
     }
     currentUser = { ...userInfo, email };
@@ -163,9 +183,44 @@ async function doLogin() {
     showView('dashboard');
     toast('Welcome back, ' + currentUser.name + '!', 'success');
   } catch (e) {
+    document.getElementById('loginError').classList.remove('login-success');
+    document.getElementById('loginError').classList.add('login-error');
+    document.getElementById('loginError').textContent = '⚠ Invalid username or password. Please try again.';
+    document.getElementById('loginError').style.display = 'block';
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = `
+      <svg style="width:18px;height:18px;fill:none;stroke:white;stroke-width:2" viewBox="0 0 24 24">
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+        <polyline points="10 17 15 12 10 7" />
+        <line x1="15" y1="12" x2="3" y2="12" />
+      </svg>
+      Sign In
+    `;
+  }
+}
+
+async function doForgotPassword() {
+  const u = document.getElementById('loginUsername').value.trim().toLowerCase();
+  if (!u) {
+    document.getElementById('loginError').textContent = 'Please enter your username first.';
+    document.getElementById('loginError').style.display = 'block';
+    return;
+  }
+  const email = u + '@kaisan.com';
+  try {
+    await sendPasswordResetEmail(auth, email);
+    document.getElementById('loginError').textContent = 'Password reset email sent! Check your inbox.';
+    document.getElementById('loginError').style.display = 'block';
+    document.getElementById('loginError').classList.remove('login-error');
+    document.getElementById('loginError').classList.add('login-success');
+  } catch (e) {
+    document.getElementById('loginError').classList.remove('login-success');
+    document.getElementById('loginError').classList.add('login-error');
+    document.getElementById('loginError').textContent = 'Failed to send reset email: ' + e.message;
     document.getElementById('loginError').style.display = 'block';
   }
 }
+
 async function doLogout() {
   await signOut(auth);
   currentUser = null;
@@ -1012,12 +1067,15 @@ window.updateCalc = updateCalc;
 window.onProductChange = onProductChange;
 window.createUser = createUser;
 window.deleteUser = deleteUser;
+window.doLogin = doLogin;
+window.doForgotPassword = doForgotPassword;
 // Close modal on overlay click
 document.getElementById('invoiceModal').addEventListener('click', function (e) {
   if (e.target === this) closeModal();
 });
 
 // Keyboard shortcut
+// admin123321
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
